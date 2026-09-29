@@ -1,0 +1,10 @@
+{
+  "name": "Warhammer 40.000 Punkte-Rechner",
+  "short_name": "40K Punkte",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#111318",
+  "theme_color": "#111318",
+  "lang": "de",
+  "description": "Mobiler Punkte-Rechner für Ultramarines, World Eaters + CSM, Astra Militarum und Tyraniden."
+}

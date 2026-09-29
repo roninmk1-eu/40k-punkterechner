@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="de"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111318"><link rel="manifest" href="manifest.webmanifest">
+<title>40K Punkte-Rechner</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#111318;color:#f5f5f5;font:16px system-ui,sans-serif}
+header{position:sticky;top:0;z-index:3;background:#111318ee;backdrop-filter:blur(10px);padding:14px;border-bottom:1px solid #30343c}
+h1{font-size:20px;margin:0}.sub,.meta,small{color:#aeb4bf;font-size:12px}main{max-width:760px;margin:auto;padding:12px 12px 80px}
+.card{background:#1b1e25;border:1px solid #30343c;border-radius:14px;padding:12px;margin-bottom:10px}
+label{display:block;color:#aeb4bf;font-size:12px;margin:0 0 5px}select,input,button{font:inherit}
+select,input{width:100%;padding:11px;border-radius:10px;border:1px solid #3a404a;background:#101218;color:#fff}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.total{font-size:32px;font-weight:800}
+.actions{display:flex;gap:8px;margin-top:10px}.actions button{flex:1}.primary{background:#d8a83e;color:#17120a}
+.unit{display:grid;grid-template-columns:1fr 70px 34px;gap:8px;padding:10px 0;border-top:1px solid #30343c}
+.unit:first-child{border-top:0}.name{font-weight:650}.pts{text-align:right;font-weight:800}.del{background:#432323;border:0;border-radius:8px;color:white}
+.pill{display:inline-block;border:1px solid #3a404a;border-radius:99px;padding:3px 8px;font-size:11px;color:#aeb4bf}
+</style></head><body>
+<header><h1>Warhammer 40.000 – Punkte-Rechner</h1><div class="sub">Smartphone-Web-App · deutsche Namen · Staffelpreise automatisch</div></header>
+<main>
+<div class="card">
+<label>Fraktion</label><select id="f"></select>
+<div class="grid" style="margin-top:9px"><div><label>Zielpunkte</label><input id="target" type="number" min="0" step="5" placeholder="z. B. 2000"></div><div><label>Aktuelle Punkte</label><div class="total" id="total">0</div></div></div>
+</div>
+<div class="card">
+<label>Einheit</label><select id="u"></select><div id="size" style="margin-top:9px"></div>
+<div class="actions"><button class="primary" id="add">+ Hinzufügen</button><button id="clear">Liste leeren</button></div>
+</div>
+<div class="card"><div id="list"></div><div id="empty" class="sub">Noch keine Einheiten hinzugefügt.</div></div>
+<div class="card"><small><b>Staffelpreise:</b> Die App erkennt automatisch, ob eine Einheit die 1., 2. oder 3.+ Auswahl derselben Einheit ist. Wargear-Kosten sind nicht enthalten.</small><div id="status" style="margin-top:8px"></div></div>
+</main>
+<script>
+/* Format:
+[id, name, variants:[[model,points]], tierType, tierVariants]
+tierType "2+" = ab 2. Einheit, "3+" = ab 3. Einheit.
+*/
+const D={
+"Ultramarines / Adeptus Astartes":[
+["ag","Aggressoren",[["3 Modelle",90],["6 Modelle",180]],"3+",[["3 Modelle",100],["6 Modelle",190]]],
+["ap","Apothecarius",[["1 Modell",40]]],["ab","Apothecarius Biologis",[["1 Modell",70]]],
+["ai","Sturm-Intercessoren",[["5 Modelle",75],["10 Modelle",150]]],
+["aij","Sturm-Intercessoren mit Sprungmodulen",[["5 Modelle",85],["10 Modelle",160]],"3+",[["5 Modelle",95],["10 Modelle",170]]],
+["ba","Klingenwächter-Ancien",[["1 Modell",40]]],["bv","Klingenwächter-Veteranen",[["3 Modelle",80],["6 Modelle",160]],"3+",[["3 Modelle",90],["6 Modelle",170]]],
+["cap","Captain",[["1 Modell",80]]],["cg","Captain in Gravisrüstung",[["1 Modell",80]]],["cp","Captain in Phobos-Rüstung",[["1 Modell",70]]],["ct","Captain in Terminatorrüstung",[["1 Modell",85]]],["cj","Captain mit Sprungmodul",[["1 Modell",75]]],
+["ca","Centurion-Angriffstrupp",[["3 Modelle",150],["6 Modelle",300]]],["cd","Centurion-Devastortrupp",[["3 Modelle",175],["6 Modelle",350]]],
+["ch","Kompaniehelden",[["4 Modelle",105]]],["chap","Ordenspriester",[["1 Modell",60]]],["chapt","Ordenspriester in Terminatorrüstung",[["1 Modell",75]]],["chapb","Ordenspriester mit Bike",[["1 Modell",70]]],
+["dr","Dreadnought",[["1 Modell",135]]],["bd","Ballistus-Dreadnought",[["1 Modell",150]],"2+",[["1 Modell",160]]],["br","Brutalis-Dreadnought",[["1 Modell",150]],"2+",[["1 Modell",160]]],["rd","Redemptor-Dreadnought",[["1 Modell",195]],"2+",[["1 Modell",210]]],
+["el","Eliminatoren",[["3 Modelle",75]]],["er","Eradicatoren",[["3 Modelle",90],["6 Modelle",180]],"3+",[["3 Modelle",100],["6 Modelle",190]]],
+["inf","Infiltratoren",[["5 Modelle",110],["10 Modelle",180]],"3+",[["5 Modelle",120],["10 Modelle",190]]],
+["inc","Infernus-Trupp",[["5 Modelle",85],["10 Modelle",170]]],["int","Intercessoren",[["5 Modelle",80],["10 Modelle",150]]],
+["inp","Inceptor-Trupp",[["3 Modelle",120],["6 Modelle",240]],"3+",[["3 Modelle",135],["6 Modelle",255]]],
+["sc","Spähertrupp",[["5 Modelle",65],["10 Modelle",120]],"3+",[["5 Modelle",75],["10 Modelle",130]]],
+["lr","Land Raider",[["1 Modell",220]],"2+",[["1 Modell",240]]],["lrc","Land Raider Crusader",[["1 Modell",220]],"2+",[["1 Modell",240]]],["lrr","Land Raider Redeemer",[["1 Modell",250]],"2+",[["1 Modell",270]]],
+["lt","Lieutenant",[["1 Modell",45]]],["ltp","Lieutenant in Phobos-Rüstung",[["1 Modell",45]]],["ltc","Lieutenant mit Kombiwaffe",[["1 Modell",85]]],
+["lib","Scriptor",[["1 Modell",60]]],["libp","Scriptor in Phobos-Rüstung",[["1 Modell",70]]],["libt","Scriptor in Terminatorrüstung",[["1 Modell",75]]],
+["ou","Outrider",[["3 Modelle",70],["6 Modelle",140]]],["pa","Predator Annihilator",[["1 Modell",135]],"2+",[["1 Modell",145]]],["pd","Predator Destructor",[["1 Modell",140]],"2+",[["1 Modell",150]]],
+["ra","Razorback",[["1 Modell",95]]],["rep","Repulsor",[["1 Modell",170]],"2+",[["1 Modell",190]]],["repe","Repulsor Executioner",[["1 Modell",230]],"2+",[["1 Modell",250]]],
+["hi","Schwere Intercessoren",[["5 Modelle",100],["10 Modelle",200]]],["hb","Hellblaster",[["5 Modelle",110],["10 Modelle",220]]],["sv","Sterngarde-Veteranen",[["5 Modelle",100],["10 Modelle",190]]],
+["sh","Sturm-Speeder Hailstrike",[["1 Modell",105]],"2+",[["1 Modell",115]]],["sm","Sturm-Speeder Hammerstrike",[["1 Modell",130]],"2+",[["1 Modell",140]]],["st","Sturm-Speeder Thunderstrike",[["1 Modell",135]],"2+",[["1 Modell",145]]],
+["ta","Taktischer Trupp",[["5 Modelle",140],["10 Modelle",140]]],["tech","Techmarine",[["1 Modell",55]]],["tat","Terminator-Angriffstrupp",[["5 Modelle",155],["10 Modelle",310]]],["ter","Terminatortrupp",[["5 Modelle",160],["10 Modelle",320]]],
+["vi","Vindicator",[["1 Modell",185]],"2+",[["1 Modell",200]]],["wh","Whirlwind",[["1 Modell",175]],"2+",[["1 Modell",195]]],["vv","Vanguard-Veteranen mit Sprungmodulen",[["5 Modelle",100],["10 Modelle",200]],"3+",[["5 Modelle",110],["10 Modelle",210]]],
+["titus","Captain Titus",[["1 Modell",90]]],["sic","Cato Sicarius",[["1 Modell",95]]],["tig","Scriptor-Magister Tigurius",[["1 Modell",95]]],["cal","Marneus Calgar",[["1 Modell",140]]],["guil","Roboute Guilliman",[["1 Modell",340]]],["vent","Uriel Ventris",[["1 Modell",95]]],["vic","Ehrengarde der Victrix",[["3 Modelle",110],["6 Modelle",110]],"2+",[["3 Modelle",130],["6 Modelle",130]]]
+],
+"World Eaters + Chaos Space Marines":[
+["inv","Lord Invocatus",[["1 Modell",110]]],["dpk","Dämonenprinz des Khorne",[["1 Modell",200]]],["dpkf","Dämonenprinz des Khorne mit Flügeln",[["1 Modell",170]]],["kh","Khârn der Verräter",[["1 Modell",115]]],["kb","Khorne-Berserker",[["5 Modelle",180],["10 Modelle",345]]],["jak","Jakhals",[["10 Modelle",65],["20 Modelle",65]]],["eb","Achtgebundene",[["3 Modelle",135],["6 Modelle",145]]],["eeb","Erhabene Achtgebundene",[["3 Modelle",140],["6 Modelle",150]]],["lj","Lord auf Juggernaut",[["1 Modell",105]]],["me","Meister der Exekutionen",[["1 Modell",60]]],["rh","Chaos-Rhino",[["1 Modell",85]]],["hel","Höllenschlächter",[["1 Modell",120]]],["ff","Schmiedemonstrum",[["1 Modell",160]],"2+",[["1 Modell",175]]],["mf","Maulerfiend",[["1 Modell",145]],"2+",[["1 Modell",155]]],["def","Geißel",[["1 Modell",270]],"2+",[["1 Modell",300]]],["ct","Chaos-Terminatoren",[["5 Modelle",175],["10 Modelle",185]]],
+["aba","Abaddon der Vernichter",[["1 Modell",285]]],["cl","Chaos-Lord",[["1 Modell",90]]],["tl","Terminator-Lord",[["1 Modell",85]]],["jl","Sprungmodul-Lord",[["1 Modell",90]]],["cho","Auserkorene",[["5 Modelle",125],["10 Modelle",250]],"2+",[["5 Modelle",135],["10 Modelle",260]]],
+["acu","Akklamierte Kultisten",[["5 Modelle",90],["10 Modelle",195]],"2+",[["5 Modelle",110],["10 Modelle",215]]],["cb","Chaos-Biker",[["3 Modelle",70],["6 Modelle",130]]],["clr","Chaos-Land Raider",[["1 Modell",220]],"2+",[["1 Modell",240]]],["cs","Chaos-Spawn",[["2 Modelle",60],["4 Modelle",60]]],
+["cv","Chaos-Vindicator",[["1 Modell",185]],"2+",[["1 Modell",195]]],["da","Dunkler Apostel",[["1 Modell",65]]],["dk","Dunkle Kommune",[["1 Modell",90]],"2+",[["1 Modell",100]]],["fb","Fabius Bile",[["1 Modell",100]]],
+["ha","Havocs",[["5 Modelle",125]],"2+",[["5 Modelle",135]]],["haark","Haarken Weltenschlächter",[["1 Modell",90]]],["hd","Heldrake",[["1 Modell",175]]],["hur","Huron Schwarzherz",[["1 Modell",120]]],["mp","Meister des Besitzes",[["1 Modell",60]]],
+["mu","Mutilatoren",[["2 Modelle",180]],"2+",[["2 Modelle",190]]],["ob","Obliterators",[["2 Modelle",160]],"2+",[["2 Modelle",170]]],["pos","Besessene",[["5 Modelle",120],["10 Modelle",250]],"3+",[["5 Modelle",130],["10 Modelle",260]]],
+["rap","Raptoren",[["5 Modelle",110],["10 Modelle",210]],"3+",[["5 Modelle",120],["10 Modelle",220]]],["wt","Warpkrallen",[["5 Modelle",125],["10 Modelle",280]],"3+",[["5 Modelle",135],["10 Modelle",290]]],["ven","Venomcrawler",[["1 Modell",110]],"2+",[["1 Modell",120]]],["vas","Vashtorr der Arkitekt",[["1 Modell",205]]],["ld","Lord Discordant",[["1 Modell",160]]],["nk","Noctilith-Krone",[["1 Modell",125]]],["dp","Dämonenprinz der Chaos Space Marines",[["1 Modell",165]]],["dpf","Dämonenprinz der Chaos Space Marines mit Flügeln",[["1 Modell",180]]]
+],
+"Astra Militarum":[
+["aeg","Aegis-Verteidigungslinie",[["1 Modell",145]]],["as","Gepanzerte Sentinels",[["1 Modell",65],["2 Modelle",120]]],["at","Artillerieteam",[["1 Modell",95]]],["rr","Attilanische Rough Riders",[["5 Modelle",60],["10 Modelle",120]],"3+",[["5 Modelle",65],["10 Modelle",125]]],
+["av","Avenger",[["1 Modell",130]]],["ban","Baneblade",[["1 Modell",450]],"2+",[["1 Modell",470]]],["bh","Banehammer",[["1 Modell",420]],"2+",[["1 Modell",440]]],["bs","Banesword",[["1 Modell",450]],"2+",[["1 Modell",470]]],["bas","Basilisk",[["1 Modell",115]],"2+",[["1 Modell",135]]],
+["bul","Bullgryn",[["3 Modelle",90],["6 Modelle",200]],"2+",[["3 Modelle",105],["6 Modelle",215]]],["cc","Cadianischer Castellan",[["1 Modell",55]]],["ccs","Cadianisches Kommandotrupp",[["1 Modell",65]]],["chw","Cadianische Schwere Waffen",[["3 Modelle",65]]],["cr","Cadianisches Späherteam",[["5 Modelle",80]]],["cs","Cadianische Stoßtruppen",[["10 Modelle",75],["20 Modelle",145]]],
+["catc","Catachanisches Kommando",[["1 Modell",60]]],["cath","Catachanische Schwere Waffen",[["3 Modelle",65]]],["cat","Catachanische Dschungelkämpfer",[["10 Modelle",75],["20 Modelle",145]]],["cent","Centaur RSV",[["1 Modell",75]]],["chim","Chimäre",[["1 Modell",85]]],["com","Kommissar",[["1 Modell",30]]],["cg","Kommissar Graves",[["1 Modell",125]]],["gr","Graves zu Fuß",[["1 Modell",65]]],["uc","Ursula Creed",[["1 Modell",85]]],["yar","Yarrick",[["1 Modell",130]]],
+["cy","Cyclops",[["1 Modell",40]],"2+",[["1 Modell",45]]],["dk","Todeskorps",[["10 Modelle",75],["20 Modelle",145]]],["dr","Todesreiter",[["5 Modelle",60],["10 Modelle",110]]],["ds","Todesstoß",[["1 Modell",125]],"2+",[["1 Modell",135]]],["fo","Feldgeschütz-Batterie",[["2 Modelle",90]]],["gg","Gaunts Geister",[["1 Modell",95]]],["hell","Hellhammer",[["1 Modell",420]],"2+",[["1 Modell",440]]],["hh","Hellhound",[["1 Modell",125]],"2+",[["1 Modell",135]]],["hip","Hippogriff AFV",[["1 Modell",70],["2 Modelle",140]]],["hyd","Hydra",[["1 Modell",90]]],["kas","Kasrkin",[["10 Modelle",115]],"2+",[["10 Modelle",125]]],
+["ke","Krieg-Kampfingenieure",[["5 Modelle",65],["10 Modelle",95]],"3+",[["5 Modelle",75],["10 Modelle",105]]],["kcs","Krieg-Kommandotrupp",[["1 Modell",65]]],["khw","Krieg-Schwere Waffen",[["3 Modelle",60]]],
+["lrbt","Leman Russ Kampfpanzer",[["1 Modell",185]],"2+",[["1 Modell",195]]],["lrd","Leman Russ Demolisher",[["1 Modell",190]],"2+",[["1 Modell",200]]],["lre","Leman Russ Eradicator",[["1 Modell",170]],"2+",[["1 Modell",180]]],["lrx","Leman Russ Executioner",[["1 Modell",170]],"2+",[["1 Modell",180]]],["lrx2","Leman Russ Exterminator",[["1 Modell",180]],"2+",[["1 Modell",190]]],["lrp","Leman Russ Punisher",[["1 Modell",150]],"2+",[["1 Modell",160]]],["lrv","Leman Russ Vanquisher",[["1 Modell",150]],"2+",[["1 Modell",160]]],["lrc","Leman Russ Kommandopanzer",[["1 Modell",235]],"2+",[["1 Modell",250]]],
+["ld","Lord Marschall Dreir",[["1 Modell",75]]],["ls","Lord Solar Leontus",[["1 Modell",130]]],["man","Manticore",[["1 Modell",150]],"2+",[["1 Modell",170]]],["mtk","Militarum-Tempestus-Kommandotrupp",[["1 Modell",85]],"2+",[["1 Modell",95]]],["mp","Ministorum-Priester",[["1 Modell",35]]],["nork","Nork Deddog",[["1 Modell",60]]],["og","Ogryn",[["3 Modelle",60],["6 Modelle",120]]],["ob","Ogryn-Leibwache",[["1 Modell",40]]],["psy","Primaris-Psioniker",[["1 Modell",60]]],["rat","Ratlings",[["5 Modelle",60],["10 Modelle",100]]],["rd","Rogal Dorn",[["1 Modell",260]],"2+",[["1 Modell",275]]],["rdc","Rogal Dorn Kommandopanzer",[["1 Modell",290]],"2+",[["1 Modell",305]]],["ss","Späher-Sentinel",[["1 Modell",55],["2 Modelle",100]]],["shadow","Shadowsword",[["1 Modell",410]],"2+",[["1 Modell",430]]],["sly","Sly Marbo",[["1 Modell",55]]],["storml","Stormlord",[["1 Modell",430]],"2+",[["1 Modell",450]]],["storms","Stormsword",[["1 Modell",465]],"2+",[["1 Modell",485]]],["tau","Taurox",[["1 Modell",75]]],["tp","Taurox Prime",[["1 Modell",85]]],["eng","Tech-Priest Enginseer",[["1 Modell",45]]],["aqu","Tempestus Aquilons",[["10 Modelle",100]]],["scion","Tempestus Scions",[["5 Modelle",75],["10 Modelle",155]],"3+",[["5 Modelle",85],["10 Modelle",165]]],["val","Valkyrie",[["1 Modell",170]],"2+",[["1 Modell",180]]],["wy","Wyvern",[["1 Modell",95]],"2+",[["1 Modell",115]]]
+],
+"Tyraniden":[
+["bar","Barbgaunts",[["5 Modelle",55],["10 Modelle",110]]],["bio","Biovoren",[["1 Modell",60],["2 Modelle",100],["3 Modelle",140]]],["brood","Broodlord",[["1 Modell",80]]],["car","Carnifexe",[["1 Modell",90],["2 Modelle",180]]],["death","Deathleaper",[["1 Modell",80]]],["exo","Exocrine",[["1 Modell",140]],"3+",[["1 Modell",150]]],["gar","Gargoyles",[["10 Modelle",80],["20 Modelle",155]]],["gen","Genestealer",[["5 Modelle",75],["10 Modelle",140]],"3+",[["5 Modelle",85],["10 Modelle",150]]],["har","Harpyie",[["1 Modell",185]]],["harr","Harridan",[["1 Modell",610]],"2+",[["1 Modell",660]]],["haru","Haruspex",[["1 Modell",125]],"2+",[["1 Modell",135]]],["hier","Hierophant",[["1 Modell",810]],"2+",[["1 Modell",910]]],["hc","Hive Crone",[["1 Modell",170]]],["hg","Hive Guard",[["3 Modelle",80],["6 Modelle",160]],"3+",[["3 Modelle",90],["6 Modelle",170]]],["ht","Schwarmtyrant",[["1 Modell",195]]],["hor","Hormaganten",[["10 Modelle",70],["20 Modelle",120]]],["hr","Hyperadaptierte Raveners",[["3 Modelle",165]],"2+",[["3 Modelle",175]]],["lic","Liktor",[["1 Modell",60]]],["mal","Maleceptor",[["1 Modell",180]],"2+",[["1 Modell",190]]],["maw","Mawloc",[["1 Modell",135]]],["muc","Mucolid-Sporen",[["1 Modell",30],["2 Modelle",60]]],["neu","Neurogaunts",[["11 Modelle",45],["22 Modelle",90]]],["nl","Neurolictor",[["1 Modell",80]],"2+",[["1 Modell",90]]],["nt","Neurotyrant",[["1 Modell",115]]],["na","Norn-Assimilator",[["1 Modell",250]],"2+",[["1 Modell",270]]],["ne","Norn-Emissär",[["1 Modell",250]],"2+",[["1 Modell",270]]],["ooe","Old One Eye",[["1 Modell",140]]],["pom","Parasit von Mortrex",[["1 Modell",70]]],["psy","Psychophage",[["1 Modell",110]]],["pyr","Pyrovoren",[["1 Modell",45],["2 Modelle",65],["3 Modelle",95]],"3+",[["1 Modell",55],["2 Modelle",75],["3 Modelle",105]]],["rav","Ravener",[["3 Modelle",125]],"2+",[["3 Modelle",135]]],["rip","Ripper Swarms",[["3 Modelle",30],["6 Modelle",40],["9 Modelle",50]]],["sk","Screamer-Killer",[["1 Modell",125]],"2+",[["1 Modell",135]]],["sm","Sporenminen",[["3 Modelle",55],["6 Modelle",110]]],["sp","Sporocyst",[["1 Modell",145]]],["ter","Termaganten",[["10 Modelle",60],["20 Modelle",110]]],["tev","Tervigon",[["1 Modell",160]]],["rt","Der Rote Schrecken",[["1 Modell",130]]],["sw","Schwarmherrscher",[["1 Modell",210]]],["tox","Toxocrine",[["1 Modell",135]]],["try","Trygon",[["1 Modell",140]]],["tp","Tyraniden-Prime mit Peitsche",[["1 Modell",75]]],["tkn","Tyraniden-Krieger – Nahkampf",[["3 Modelle",75],["6 Modelle",150]]],["tkf","Tyraniden-Krieger – Fernkampf",[["3 Modelle",60],["6 Modelle",120]]],["tyc","Tyrannocyte",[["1 Modell",90]]],["tyf","Tyrannofex",[["1 Modell",180]],"2+",[["1 Modell",190]]],["tg","Tyrantenwache",[["3 Modelle",80],["6 Modelle",160]]],["vt","Venomthropen",[["3 Modelle",55],["6 Modelle",110]]],["vrl","Von-Ryan-Springer",[["3 Modelle",60],["6 Modelle",120]]],["wht","Geflügelter Schwarmtyrant",[["1 Modell",185]]],["wtp","Geflügelter Tyraniden-Prime",[["1 Modell",65]]],["zo","Zoanthropen",[["3 Modelle",100],["6 Modelle",200]]]
+]};
+
+let faction=Object.keys(D)[0], army=[];
+const $=x=>document.getElementById(x);
+function unit(){return D[faction].find(x=>x[0]===$("u").value)}
+function price(u,occ,size){let i=u[2].findIndex(v=>v[0]===size),p=u[2][i][1];if(u[3]&&((u[3]==="2+"&&occ>=2)||(u[3]==="3+"&&occ>=3)))p=u[4][i][1];return p}
+function fillF(){faction=$("f").value||faction;$("f").innerHTML="";Object.keys(D).forEach(x=>{let o=document.createElement("option");o.value=x;o.textContent=x;$("f").append(o)});$("f").value=faction}
+function fillU(){let a=D[faction];$("u").innerHTML="";a.forEach(x=>{let o=document.createElement("option");o.value=x[0];o.textContent=x[1];$("u").append(o)});sizes()}
+function sizes(){let u=unit(),w=$("size");w.innerHTML="";if(u[2].length>1){let l=document.createElement("label");l.textContent="Truppgröße";w.append(l);let s=document.createElement("select");s.id="s";u[2].forEach(v=>{let o=document.createElement("option");o.value=v[0];o.textContent=v[0]+" – "+v[1]+" Pkt.";s.append(o)});w.append(s)}else{let d=document.createElement("div");d.className="meta";d.textContent=u[2][0][0]+" – "+u[2][0][1]+" Punkte";w.append(d)}}
+function add(){let u=unit(),size=$("s")?.value||u[2][0][0];army.push({id:u[0],size});render()}
+function render(){let counts={};army.forEach(x=>counts[x.id]=(counts[x.id]||0)+1);let seen={};let total=0,html="";army.forEach((x,n)=>{seen[x.id]=(seen[x.id]||0)+1;let u=D[faction].find(y=>y[0]===x.id),p=price(u,seen[x.id],x.size);total+=p;html+=`<div class="unit"><div><div class="name">${u[1]}</div><div class="meta">${x.size}${u[3]?` · ${seen[x.id]}. Einheit`:""}</div></div><div class="pts">${p}</div><button class="del" onclick="army.splice(${n},1);render()">×</button></div>`});$("list").innerHTML=html;$("empty").style.display=army.length?"none":"block";$("total").textContent=total;let t=+$("target").value||0;$("status").innerHTML=t?`<span class="pill">${total<t?`Noch ${t-total} Punkte`:total===t?"Ziel erreicht":`${total-t} Punkte über Ziel`}</span>`:""}
+$("f").onchange=()=>{faction=$("f").value;army=[];fillU();render()};$("u").onchange=sizes;$("add").onclick=add;$("clear").onclick=()=>{army=[];render()};$("target").oninput=render;
+fillF();fillU();render();
+if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js");
+</script></body></html>
